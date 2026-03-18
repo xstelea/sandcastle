@@ -1,6 +1,6 @@
 import { Effect } from "effect";
 import { exec } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -423,10 +423,11 @@ describe("failure cases", () => {
 });
 
 describe("readConfig", () => {
-  it("reads .sandcastle.json with postSyncIn", async () => {
+  it("reads .sandcastle/config.json with postSyncIn", async () => {
     const dir = await mkdtemp(join(tmpdir(), "config-"));
+    await mkdir(join(dir, ".sandcastle"), { recursive: true });
     await writeFile(
-      join(dir, ".sandcastle.json"),
+      join(dir, ".sandcastle", "config.json"),
       JSON.stringify({ postSyncIn: "npm install" }),
     );
 
@@ -443,7 +444,11 @@ describe("readConfig", () => {
 
   it("returns empty config when file has no postSyncIn", async () => {
     const dir = await mkdtemp(join(tmpdir(), "config-"));
-    await writeFile(join(dir, ".sandcastle.json"), JSON.stringify({}));
+    await mkdir(join(dir, ".sandcastle"), { recursive: true });
+    await writeFile(
+      join(dir, ".sandcastle", "config.json"),
+      JSON.stringify({}),
+    );
 
     const config = await Effect.runPromise(readConfig(dir));
     expect(config.postSyncIn).toBeUndefined();

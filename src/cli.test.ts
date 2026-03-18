@@ -1,5 +1,5 @@
 import { exec } from "node:child_process";
-import { mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
@@ -91,14 +91,15 @@ describe("sandcastle CLI", () => {
     expect(content).toBe("from sandbox");
   });
 
-  it("sync-in respects .sandcastle.json postSyncIn config", async () => {
+  it("sync-in respects .sandcastle/config.json postSyncIn config", async () => {
     const hostDir = await mkdtemp(join(tmpdir(), "cli-host-"));
     const sandboxDir = await mkdtemp(join(tmpdir(), "cli-sandbox-"));
     const sandboxRepoDir = join(sandboxDir, "repo");
 
     await initRepo(hostDir);
+    await mkdir(join(hostDir, ".sandcastle"));
     await writeFile(
-      join(hostDir, ".sandcastle.json"),
+      join(hostDir, ".sandcastle", "config.json"),
       JSON.stringify({ postSyncIn: "touch post-sync-marker" }),
     );
     await execAsync("git add -A && git commit -m 'add config'", {

@@ -8,7 +8,7 @@ export interface SandcastleConfig {
 
 export const readConfig = (repoDir: string): Effect.Effect<SandcastleConfig> =>
   Effect.promise(() =>
-    readFile(join(repoDir, ".sandcastle.json"), "utf-8")
+    readFile(join(repoDir, ".sandcastle", "config.json"), "utf-8")
       .then((content) => JSON.parse(content) as SandcastleConfig)
       .catch(() => ({})),
   );
