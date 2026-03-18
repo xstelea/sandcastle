@@ -163,6 +163,7 @@ const syncOutCommand = Command.make(
 
 const iterationsOption = Options.integer("iterations").pipe(
   Options.withDescription("Number of agent iterations to run"),
+  Options.withDefault(5),
 );
 
 const promptFileOption = Options.file("prompt-file").pipe(

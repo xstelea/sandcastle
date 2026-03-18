@@ -23,9 +23,9 @@ sandcastle setup \
   --oauth-token "$CLAUDE_CODE_OAUTH_TOKEN" \
   --gh-token "$GH_TOKEN"
 
-# 2. Run the agent for 5 iterations against your repo's open issues
+# 2. Run the agent against your repo's open issues (defaults to 5 iterations)
 cd /path/to/your/repo
-sandcastle run --iterations 5
+sandcastle run
 
 # 3. Clean up when you're done
 sandcastle cleanup
@@ -50,7 +50,7 @@ Runs the orchestration loop: sync-in, invoke agent, sync-out, repeat.
 
 | Option          | Required | Default                                 | Description                       |
 | --------------- | -------- | --------------------------------------- | --------------------------------- |
-| `--iterations`  | Yes      | —                                       | Number of agent iterations to run |
+| `--iterations`  | No       | `5`                                     | Number of agent iterations to run |
 | `--container`   | No       | `claude-sandbox`                        | Docker container name             |
 | `--image-name`  | No       | `sandcastle:local`                      | Docker image name                 |
 | `--prompt-file` | No       | `docker-container-experiment/prompt.md` | Path to the agent prompt file     |
