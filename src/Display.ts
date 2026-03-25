@@ -122,7 +122,7 @@ export const FileDisplay = {
 
       status: (message, severity) =>
         Effect.sync(() => {
-          appendToLog(filePath, `[${severity.toUpperCase()}] ${message}`);
+          appendToLog(filePath, message);
         }),
 
       spinner: (message, effect) =>

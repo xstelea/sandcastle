@@ -216,8 +216,10 @@ describe("FileDisplay", () => {
     );
 
     const log = readLog(logPath);
-    expect(log).toContain("[INFO] Syncing files...");
-    expect(log).toContain("[SUCCESS] Done!");
+    expect(log).toContain("Syncing files...");
+    expect(log).toContain("Done!");
+    expect(log).not.toContain("[INFO]");
+    expect(log).not.toContain("[SUCCESS]");
   });
 
   it("writes spinner messages to file and passes through result", async () => {
