@@ -2,13 +2,12 @@
 
 ## Core concepts
 
-| Term               | Definition                                                                                                             | Aliases to avoid                                                                        |
-| ------------------ | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| **Sandcastle**     | The TypeScript CLI tool that orchestrates AI coding agents inside isolated environments                                | "the tool", "the CLI", "RALPH"                                                          |
-| **Sandbox**        | An isolated environment where an agent executes code — either a Docker container or a local directory                  | "container" (too specific), "Docker sandbox" (ambiguous with Claude's built-in feature) |
-| **Host**           | The developer's machine where Sandcastle runs and the real git repo lives                                              | "local" (ambiguous — the sandbox also has a local filesystem)                           |
-| **Agent**          | The AI coding tool invoked inside the sandbox (e.g. Claude Code, Codex)                                                | "RALPH", "the bot", "Claude" (too specific — agent is swappable)                        |
-| **Agent provider** | The module that supplies agent-specific configuration: env requirements, Dockerfile template, and env validation logic | "tool adapter", "adapter" (collides with sandbox service aliases), "tool definition"    |
+| Term           | Definition                                                                                            | Aliases to avoid                                                                        |
+| -------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Sandcastle** | The TypeScript CLI tool that orchestrates AI coding agents inside isolated environments               | "the tool", "the CLI", "RALPH"                                                          |
+| **Sandbox**    | An isolated environment where an agent executes code — either a Docker container or a local directory | "container" (too specific), "Docker sandbox" (ambiguous with Claude's built-in feature) |
+| **Host**       | The developer's machine where Sandcastle runs and the real git repo lives                             | "local" (ambiguous — the sandbox also has a local filesystem)                           |
+| **Agent**      | The AI coding tool invoked inside the sandbox (e.g. Claude Code, Codex)                               | "RALPH", "the bot", "Claude" (too specific — agent is swappable)                        |
 
 ## Environment
 
@@ -20,21 +19,22 @@
 
 ## Sync operations
 
-| Term         | Definition                                                                                               | Aliases to avoid              |
-| ------------ | -------------------------------------------------------------------------------------------------------- | ----------------------------- |
-| **Sync-in**  | Transferring the host repo state into the sandbox via git bundle                                         | "push", "upload", "deploy"    |
-| **Sync-out** | Extracting commits and uncommitted changes from the sandbox back to the host via format-patch and git am | "pull", "download", "extract" |
-| **Bundle**   | A git bundle file used to transfer repository state from host to sandbox without a network round-trip    | "archive", "snapshot"         |
-| **Patch**    | A `git format-patch` output file representing a commit made inside the sandbox                           | "diff", "changeset"           |
+| Term       | Definition                                                                                            | Aliases to avoid      |
+| ---------- | ----------------------------------------------------------------------------------------------------- | --------------------- |
+| **Bundle** | A git bundle file used to transfer repository state from host to sandbox without a network round-trip | "archive", "snapshot" |
+| **Patch**  | A `git format-patch` output file representing a commit made inside the sandbox                        | "diff", "changeset"   |
 
 ## Execution
 
-| Term                  | Definition                                                                                                                     | Aliases to avoid                                        |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------- |
-| **Iteration**         | A single invocation of the agent inside the sandbox, producing at most one commit against one task                             | "run" (ambiguous with the CLI command), "cycle", "loop" |
-| **Task**              | A GitHub issue that the agent selects and works on during an iteration                                                         | "job", "work item", "ticket"                            |
-| **Completion signal** | The `<promise>COMPLETE</promise>` marker in the agent's output indicating all actionable tasks are finished                    | "done flag", "exit signal"                              |
-| **Orchestrator**      | The module that drives the iteration loop: sync-in, invoke agent, check for commits, sync-out, check completion signal, repeat | "runner", "loop", "wrapper script"                      |
+| Term                  | Definition                                                                                                                     | Aliases to avoid                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| **Iteration**         | A single invocation of the agent inside the sandbox, producing at most one commit against one task                             | "run" (ambiguous with the CLI command), "cycle", "loop"                                  |
+| **Task**              | A GitHub issue that the agent selects and works on during an iteration                                                         | "job", "work item", "ticket"                                                             |
+| **Completion signal** | The `<promise>COMPLETE</promise>` marker in the agent's output indicating all actionable tasks are finished                    | "done flag", "exit signal"                                                               |
+| **Orchestrator**      | The module that drives the iteration loop: sync-in, invoke agent, check for commits, sync-out, check completion signal, repeat | "runner", "loop", "wrapper script"                                                       |
+| **Prompt**            | The instruction text passed to the agent at the start of each iteration — may contain **shell expressions**                    | "system prompt" (too specific), "instructions" (too vague), "message"                    |
+| **Prompt expansion**  | The preprocessing step that finds and evaluates all **shell expressions** in a **prompt** before passing it to the agent       | "prompt preprocessing" (too generic), "command expansion"                                |
+| **Shell expression**  | A `` !`command` `` marker in a **prompt** that evaluates a shell command inside the sandbox and is replaced with its stdout    | "command" (overloaded — collides with hook commands), "inline command", "prompt command" |
 
 ## Project structure
 
@@ -69,6 +69,8 @@
 - The **agent provider** is selected via the `agent` field in config or `--agent` CLI flag
 - At launch, Sandcastle resolves env vars via the **env resolver**, runs the active **agent provider**'s **env check**, then passes the full env map into the **sandbox**
 - **Init** uses the **agent provider**'s **env manifest** to scaffold `.env.example` and its Dockerfile template to scaffold the Dockerfile
+- **Prompt expansion** runs before each **iteration**, evaluating all **shell expressions** inside the **sandbox**
+- A prompt may contain zero or more **shell expressions**; if none are found, **prompt expansion** is skipped entirely
 
 ## Example dialogue
 
@@ -92,6 +94,14 @@
 
 > **Domain expert:** "The `agent` field in `config.json`, or the `--agent` CLI flag. The **env resolver** loads all env vars generically — it doesn't know or care which **agent** is running. The **agent provider**'s **env check** is what enforces the tool-specific requirements."
 
+> **Dev:** "I see `` !`gh issue list` `` in the **prompt** file — what happens with that?"
+
+> **Domain expert:** "That's a **shell expression**. Before each **iteration**, **prompt expansion** finds all **shell expressions** in the **prompt**, executes them inside the **sandbox**, and replaces them with stdout. If there are no **shell expressions**, the step is skipped entirely."
+
+> **Dev:** "So the **agent** never sees the `` !`...` `` syntax?"
+
+> **Domain expert:** "Correct. By the time the **prompt** reaches the **agent**, every **shell expression** has been replaced with its output."
+
 ## Flagged ambiguities
 
 - **"Docker sandbox"** — In this project, **sandbox** refers to our isolated environment concept. It is NOT Claude Code's built-in `docker sandbox` CLI feature. Use **sandbox** for ours; spell out "Claude's Docker sandbox CLI" for the built-in feature.
@@ -99,4 +109,5 @@
 - **"Local"** vs **"Host"** — Both could mean the developer's machine, but "local" is ambiguous (the filesystem layer's sandbox is also local). Use **host** to mean the developer's machine. Reserve "local" for generic contexts.
 - **"Run"** — Ambiguous between the CLI command (`sandcastle run`) and a single **iteration**. Use **iteration** for one agent invocation; use "run command" or "run session" for the CLI command that drives multiple iterations.
 - **"Adapter"** vs **"Layer"** — We use **layer** (Effect terminology) for implementations of the **Sandbox service**. Avoid "adapter" and "transport" as they suggest different patterns. The new **agent provider** concept is NOT an adapter — it provides configuration and validation, not an alternative implementation of a service interface. (updated)
-- **"Token"** vs **"Env var"** — The old `TokenResolver` name implied it only handled auth tokens. The **env resolver** handles all environment variables generically. Use "env var" for the general concept; "token" only when referring specifically to an auth credential value. (new)
+- **"Token"** vs **"Env var"** — The old `TokenResolver` name implied it only handled auth tokens. The **env resolver** handles all environment variables generically. Use "env var" for the general concept; "token" only when referring specifically to an auth credential value.
+- **"Command"** — Heavily overloaded: hook commands, shell commands, CLI commands, **shell expressions**. Use **shell expression** for the `` !`...` `` syntax in **prompts**; use "hook" for lifecycle hooks; use "CLI command" for `sandcastle run`, `sandcastle init`, etc.

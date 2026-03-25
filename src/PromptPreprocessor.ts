@@ -18,7 +18,7 @@ export const preprocessPrompt = (
 
   return Effect.gen(function* () {
     const display = yield* Display;
-    return yield* display.taskLog("Expanding commands in prompt", (message) =>
+    return yield* display.taskLog("Expanding shell expressions", (message) =>
       Effect.gen(function* () {
         let result = prompt;
         // Process matches in reverse order to preserve indices
