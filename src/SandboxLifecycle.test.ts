@@ -265,7 +265,7 @@ describe("withSandboxLifecycle", () => {
     const spinnerEntries = entries.filter((e) => e._tag === "spinner");
     expect(
       spinnerEntries.some((e) =>
-        "message" in e ? e.message.includes("Syncing commits back") : false,
+        "message" in e ? e.message.includes("back to host") : false,
       ),
     ).toBe(false);
   });
@@ -299,7 +299,79 @@ describe("withSandboxLifecycle", () => {
     const spinnerEntries = entries.filter((e) => e._tag === "spinner");
     expect(
       spinnerEntries.some((e) =>
-        "message" in e ? e.message.includes("Syncing commits back") : false,
+        "message" in e ? e.message.includes("back to host") : false,
+      ),
+    ).toBe(true);
+  });
+
+  it("spinner message includes commit count when syncing back to host", async () => {
+    const { hostDir, sandboxRepoDir, layer } = await setup();
+    await initRepo(hostDir);
+    await commitFile(hostDir, "file.txt", "original", "initial commit");
+
+    const ref = Ref.unsafeMake<ReadonlyArray<DisplayEntry>>([]);
+    const displayLayer = SilentDisplay.layer(ref);
+
+    await Effect.runPromise(
+      withSandboxLifecycle({ hostRepoDir: hostDir, sandboxRepoDir }, (ctx) =>
+        Effect.gen(function* () {
+          yield* ctx.sandbox.exec('git config user.email "test@test.com"', {
+            cwd: ctx.sandboxRepoDir,
+          });
+          yield* ctx.sandbox.exec('git config user.name "Test"', {
+            cwd: ctx.sandboxRepoDir,
+          });
+          yield* ctx.sandbox.exec(
+            'sh -c "echo a > a.txt && git add a.txt && git commit -m \\"first\\""',
+            { cwd: ctx.sandboxRepoDir },
+          );
+          yield* ctx.sandbox.exec(
+            'sh -c "echo b > b.txt && git add b.txt && git commit -m \\"second\\""',
+            { cwd: ctx.sandboxRepoDir },
+          );
+        }),
+      ).pipe(Effect.provide(Layer.merge(layer, displayLayer))),
+    );
+
+    const entries = await Effect.runPromise(Ref.get(ref));
+    const spinnerEntries = entries.filter((e) => e._tag === "spinner");
+    expect(
+      spinnerEntries.some((e) =>
+        "message" in e ? e.message === "Syncing 2 commits back to host" : false,
+      ),
+    ).toBe(true);
+  });
+
+  it("spinner message uses singular 'commit' for a single commit", async () => {
+    const { hostDir, sandboxRepoDir, layer } = await setup();
+    await initRepo(hostDir);
+    await commitFile(hostDir, "file.txt", "original", "initial commit");
+
+    const ref = Ref.unsafeMake<ReadonlyArray<DisplayEntry>>([]);
+    const displayLayer = SilentDisplay.layer(ref);
+
+    await Effect.runPromise(
+      withSandboxLifecycle({ hostRepoDir: hostDir, sandboxRepoDir }, (ctx) =>
+        Effect.gen(function* () {
+          yield* ctx.sandbox.exec('git config user.email "test@test.com"', {
+            cwd: ctx.sandboxRepoDir,
+          });
+          yield* ctx.sandbox.exec('git config user.name "Test"', {
+            cwd: ctx.sandboxRepoDir,
+          });
+          yield* ctx.sandbox.exec(
+            'sh -c "echo new > feature.txt && git add feature.txt && git commit -m \\"feat\\""',
+            { cwd: ctx.sandboxRepoDir },
+          );
+        }),
+      ).pipe(Effect.provide(Layer.merge(layer, displayLayer))),
+    );
+
+    const entries = await Effect.runPromise(Ref.get(ref));
+    const spinnerEntries = entries.filter((e) => e._tag === "spinner");
+    expect(
+      spinnerEntries.some((e) =>
+        "message" in e ? e.message === "Syncing 1 commit back to host" : false,
       ),
     ).toBe(true);
   });

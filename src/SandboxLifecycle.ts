@@ -141,7 +141,14 @@ export const withSandboxLifecycle = <A>(
       );
 
       if (currentHead !== baseHead) {
-        yield* display.spinner("Syncing commits back to host", syncOutEffect);
+        const commitCountResult = yield* execOk(
+          sandbox,
+          `git rev-list "${baseHead}..HEAD" --count`,
+          { cwd: sandboxRepoDir },
+        );
+        const commitCount = parseInt(commitCountResult.stdout.trim(), 10);
+        const syncMessage = `Syncing ${commitCount} ${commitCount === 1 ? "commit" : "commits"} back to host`;
+        yield* display.spinner(syncMessage, syncOutEffect);
       } else {
         yield* syncOutEffect;
       }
