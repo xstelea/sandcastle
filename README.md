@@ -7,22 +7,30 @@ A TypeScript CLI for orchestrating AI coding agents in isolated Docker container
 - [Docker Desktop](https://www.docker.com/)
 - [Git](https://git-scm.com/)
 
-## Installation
+## Quick start
+
+1. Install the package:
 
 ```bash
 pnpm add @ai-hero/sandcastle
 ```
 
-## Quick start
+2. Run `sandcastle init`. This scaffolds a `.sandcastle` directory with all the files needed.
 
 ```bash
-# 1. Initialize — scaffolds .sandcastle/ config directory and builds the Docker image
-cd /path/to/your/repo
 npx sandcastle init
+```
 
-# 2. Set up environment variables in .sandcastle/.env
+3. Edit `.sandcastle/.env` and fill in your default values for `ANTHROPIC_API_KEY`
+
+```bash
 cp .sandcastle/.env.example .sandcastle/.env
-# Edit .sandcastle/.env and fill in your values
+```
+
+4. Run the `.sandcastle/main.ts` file with `npx tsx`
+
+```bash
+npx tsx .sandcastle/main.ts
 ```
 
 ```typescript
@@ -34,59 +42,24 @@ await run({
 });
 ```
 
-```bash
-npx tsx main.ts
+## API
+
+Sandcastle exports a programmatic `run()` function for use in scripts, CI pipelines, or custom tooling.
+
+```typescript
+import { run } from "@ai-hero/sandcastle";
+
+const result = await run({
+  promptFile: "./my-prompt.md",
+  maxIterations: 3,
+  branch: "agent/fix-123",
+});
+
+console.log(result.iterationsRun); // number of iterations executed
+console.log(result.wasCompletionSignalDetected); // true if agent emitted <promise>COMPLETE</promise>
+console.log(result.commits); // array of { sha } for commits created
+console.log(result.branch); // target branch name
 ```
-
-## CLI commands
-
-### `sandcastle init`
-
-Scaffolds the `.sandcastle/` config directory and builds the Docker image. This is the first command you run in a new repo.
-
-| Option         | Required | Default            | Description                                |
-| -------------- | -------- | ------------------ | ------------------------------------------ |
-| `--image-name` | No       | `sandcastle:local` | Docker image name                          |
-| `--agent`      | No       | `claude-code`      | Agent provider to use (e.g. `claude-code`) |
-
-Creates the following files:
-
-```
-.sandcastle/
-├── Dockerfile      # Sandbox environment (customize as needed)
-├── prompt.md       # Agent instructions
-├── .env.example    # Token placeholders
-└── .gitignore      # Ignores .env, patches/, logs/
-```
-
-Errors if `.sandcastle/` already exists to prevent overwriting customizations.
-
-### `sandcastle build-image`
-
-Rebuilds the Docker image from an existing `.sandcastle/` directory. Use this after modifying the Dockerfile.
-
-| Option         | Required | Default            | Description                                                                       |
-| -------------- | -------- | ------------------ | --------------------------------------------------------------------------------- |
-| `--image-name` | No       | `sandcastle:local` | Docker image name                                                                 |
-| `--dockerfile` | No       | —                  | Path to a custom Dockerfile (build context will be the current working directory) |
-
-### `sandcastle interactive`
-
-Opens an interactive Claude Code session inside the sandbox. Creates a worktree, bind-mounts it into the sandbox, launches Claude with TTY passthrough, and merges commits back when you exit.
-
-| Option         | Required | Default            | Description                |
-| -------------- | -------- | ------------------ | -------------------------- |
-| `--image-name` | No       | `sandcastle:local` | Docker image name          |
-| `--model`      | No       | `claude-opus-4-6`  | Model to use for the agent |
-| `--agent`      | No       | `claude-code`      | Agent provider to use      |
-
-### `sandcastle remove-image`
-
-Removes the Docker image.
-
-| Option         | Required | Default            | Description       |
-| -------------- | -------- | ------------------ | ----------------- |
-| `--image-name` | No       | `sandcastle:local` | Docker image name |
 
 ## Prompts
 
@@ -166,24 +139,55 @@ This is useful for task-based workflows where the agent should stop once it has 
 
 Select a template during `sandcastle init` when prompted, or re-run init in a fresh repo to try a different one.
 
-## Node API
+## CLI commands
 
-Sandcastle exports a programmatic `run()` function for use in Node.js scripts, CI pipelines, or custom tooling.
+### `sandcastle init`
 
-```typescript
-import { run } from "@ai-hero/sandcastle";
+Scaffolds the `.sandcastle/` config directory and builds the Docker image. This is the first command you run in a new repo.
 
-const result = await run({
-  promptFile: "./my-prompt.md",
-  maxIterations: 3,
-  branch: "agent/fix-123",
-});
+| Option         | Required | Default            | Description                                |
+| -------------- | -------- | ------------------ | ------------------------------------------ |
+| `--image-name` | No       | `sandcastle:local` | Docker image name                          |
+| `--agent`      | No       | `claude-code`      | Agent provider to use (e.g. `claude-code`) |
 
-console.log(result.iterationsRun); // number of iterations executed
-console.log(result.wasCompletionSignalDetected); // true if agent emitted <promise>COMPLETE</promise>
-console.log(result.commits); // array of { sha } for commits created
-console.log(result.branch); // target branch name
+Creates the following files:
+
 ```
+.sandcastle/
+├── Dockerfile      # Sandbox environment (customize as needed)
+├── prompt.md       # Agent instructions
+├── .env.example    # Token placeholders
+└── .gitignore      # Ignores .env, patches/, logs/
+```
+
+Errors if `.sandcastle/` already exists to prevent overwriting customizations.
+
+### `sandcastle build-image`
+
+Rebuilds the Docker image from an existing `.sandcastle/` directory. Use this after modifying the Dockerfile.
+
+| Option         | Required | Default            | Description                                                                       |
+| -------------- | -------- | ------------------ | --------------------------------------------------------------------------------- |
+| `--image-name` | No       | `sandcastle:local` | Docker image name                                                                 |
+| `--dockerfile` | No       | —                  | Path to a custom Dockerfile (build context will be the current working directory) |
+
+### `sandcastle interactive`
+
+Opens an interactive Claude Code session inside the sandbox. Creates a worktree, bind-mounts it into the sandbox, launches Claude with TTY passthrough, and merges commits back when you exit.
+
+| Option         | Required | Default            | Description                |
+| -------------- | -------- | ------------------ | -------------------------- |
+| `--image-name` | No       | `sandcastle:local` | Docker image name          |
+| `--model`      | No       | `claude-opus-4-6`  | Model to use for the agent |
+| `--agent`      | No       | `claude-code`      | Agent provider to use      |
+
+### `sandcastle remove-image`
+
+Removes the Docker image.
+
+| Option         | Required | Default            | Description       |
+| -------------- | -------- | ------------------ | ----------------- |
+| `--image-name` | No       | `sandcastle:local` | Docker image name |
 
 ### `RunOptions`
 
