@@ -661,7 +661,7 @@ describe("parseStreamJsonLine", () => {
     ]);
   });
 
-  it("extracts tool_use block from assistant event", () => {
+  it("extracts tool_use block from assistant event (Bash → command arg)", () => {
     const line = JSON.stringify({
       type: "assistant",
       message: {
@@ -671,7 +671,7 @@ describe("parseStreamJsonLine", () => {
       },
     });
     expect(parseStreamJsonLine(line)).toEqual([
-      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+      { type: "tool_call", name: "Bash", args: "npm test" },
     ]);
   });
 
@@ -687,7 +687,7 @@ describe("parseStreamJsonLine", () => {
     });
     expect(parseStreamJsonLine(line)).toEqual([
       { type: "text", text: "Running tests..." },
-      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+      { type: "tool_call", name: "Bash", args: "npm test" },
     ]);
   });
 
@@ -706,12 +706,90 @@ describe("parseStreamJsonLine", () => {
       },
     });
     expect(parseStreamJsonLine(line)).toEqual([
-      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+      { type: "tool_call", name: "Bash", args: "npm test" },
+      { type: "tool_call", name: "WebSearch", args: "typescript types" },
+    ]);
+  });
+
+  it("extracts WebFetch tool_use with url arg", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            name: "WebFetch",
+            input: { url: "https://example.com" },
+          },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "tool_call", name: "WebFetch", args: "https://example.com" },
+    ]);
+  });
+
+  it("extracts Agent tool_use with description arg", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          {
+            type: "tool_use",
+            name: "Agent",
+            input: { description: "Run tests and report results" },
+          },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
       {
         type: "tool_call",
-        name: "WebSearch",
-        input: { query: "typescript types" },
+        name: "Agent",
+        args: "Run tests and report results",
       },
+    ]);
+  });
+
+  it("filters out non-allowlisted tools (Read, Glob, Grep, Edit, Write)", () => {
+    for (const name of ["Read", "Glob", "Grep", "Edit", "Write"]) {
+      const line = JSON.stringify({
+        type: "assistant",
+        message: {
+          content: [
+            { type: "tool_use", name, input: { file_path: "/some/file" } },
+          ],
+        },
+      });
+      expect(parseStreamJsonLine(line)).toEqual([]);
+    }
+  });
+
+  it("filters out tool_use blocks with missing expected input field", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          // Bash with no `command` field
+          { type: "tool_use", name: "Bash", input: { other: "value" } },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([]);
+  });
+
+  it("keeps text events even when all tool_use blocks are filtered out", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "text", text: "Looking at files..." },
+          { type: "tool_use", name: "Read", input: { file_path: "/foo" } },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "Looking at files..." },
     ]);
   });
 
