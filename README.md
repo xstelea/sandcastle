@@ -12,7 +12,7 @@ A TypeScript library for orchestrating AI coding agents in isolated Docker conta
 1. Install the package:
 
 ```bash
-pnpm add @ai-hero/sandcastle
+npm install @ai-hero/sandcastle
 ```
 
 2. Run `sandcastle init`. This scaffolds a `.sandcastle` directory with all the files needed.
@@ -77,7 +77,7 @@ const result = await run({
   // Lifecycle hooks — arrays of shell commands run sequentially inside the sandbox.
   hooks: {
     // Runs after the worktree is mounted into the sandbox.
-    onSandboxReady: [{ command: "pnpm install" }],
+    onSandboxReady: [{ command: "npm install" }],
   },
 
   // Host-relative file paths to copy into the worktree before the container starts.
@@ -291,14 +291,14 @@ Hooks are arrays of `{ "command": "..." }` objects executed sequentially inside 
 | ---------------- | -------------------------- | ---------------------- |
 | `onSandboxReady` | After the sandbox is ready | Sandbox repo directory |
 
-**`onSandboxReady`** runs after the worktree is mounted into the sandbox. Use it for dependency installation or build steps (e.g., `pnpm install`).
+**`onSandboxReady`** runs after the worktree is mounted into the sandbox. Use it for dependency installation or build steps (e.g., `npm install`).
 
 Pass hooks programmatically via `run()`:
 
 ```ts
 await run({
   hooks: {
-    onSandboxReady: [{ command: "pnpm install" }],
+    onSandboxReady: [{ command: "npm install" }],
   },
   // ...
 });
@@ -318,10 +318,10 @@ This approach eliminates the complexity of patch-based sync and ensures the agen
 ## Development
 
 ```bash
-pnpm install
-pnpm run build    # Build with tsgo
-pnpm test         # Run tests with vitest
-pnpm run typecheck # Type-check
+npm install
+npm run build    # Build with tsgo
+npm test         # Run tests with vitest
+npm run typecheck # Type-check
 ```
 
 ## License
