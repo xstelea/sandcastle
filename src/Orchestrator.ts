@@ -46,29 +46,55 @@ const extractUsage = (obj: Record<string, unknown>): TokenUsage | null => {
   };
 };
 
-/** Extract displayable text from a stream-json line */
-export const parseStreamJsonLine = (
-  line: string,
-):
+export type ParsedStreamEvent =
   | { type: "text"; text: string }
   | { type: "result"; result: string; usage: TokenUsage | null }
-  | null => {
-  if (!line.startsWith("{")) return null;
+  | { type: "tool_call"; name: string; input: Record<string, unknown> };
+
+/** Extract displayable events from a stream-json line */
+export const parseStreamJsonLine = (line: string): ParsedStreamEvent[] => {
+  if (!line.startsWith("{")) return [];
   try {
     const obj = JSON.parse(line);
     if (obj.type === "assistant" && Array.isArray(obj.message?.content)) {
-      const texts = obj.message.content
-        .filter((c: { type: string }) => c.type === "text")
-        .map((c: { text: string }) => c.text);
-      if (texts.length > 0) return { type: "text", text: texts.join("") };
+      const events: ParsedStreamEvent[] = [];
+      const texts: string[] = [];
+      for (const block of obj.message.content as {
+        type: string;
+        text?: string;
+        name?: string;
+        input?: Record<string, unknown>;
+      }[]) {
+        if (block.type === "text" && typeof block.text === "string") {
+          texts.push(block.text);
+        } else if (
+          block.type === "tool_use" &&
+          typeof block.name === "string" &&
+          block.input !== undefined
+        ) {
+          if (texts.length > 0) {
+            events.push({ type: "text", text: texts.join("") });
+            texts.length = 0;
+          }
+          events.push({
+            type: "tool_call",
+            name: block.name,
+            input: block.input,
+          });
+        }
+      }
+      if (texts.length > 0) {
+        events.push({ type: "text", text: texts.join("") });
+      }
+      return events;
     }
     if (obj.type === "result" && typeof obj.result === "string") {
-      return { type: "result", result: obj.result, usage: extractUsage(obj) };
+      return [{ type: "result", result: obj.result, usage: extractUsage(obj) }];
     }
   } catch {
     // Not valid JSON — skip
   }
-  return null;
+  return [];
 };
 
 const invokeAgent = (
@@ -85,12 +111,13 @@ const invokeAgent = (
     const execResult = yield* sandbox.execStreaming(
       `claude --print --verbose --dangerously-skip-permissions --output-format stream-json --model ${model} -p ${shellEscape(prompt)}`,
       (line) => {
-        const parsed = parseStreamJsonLine(line);
-        if (parsed?.type === "text") {
-          onText(parsed.text);
-        } else if (parsed?.type === "result") {
-          resultText = parsed.result;
-          tokenUsage = parsed.usage;
+        for (const parsed of parseStreamJsonLine(line)) {
+          if (parsed.type === "text") {
+            onText(parsed.text);
+          } else if (parsed.type === "result") {
+            resultText = parsed.result;
+            tokenUsage = parsed.usage;
+          }
         }
       },
       { cwd: sandboxRepoDir },

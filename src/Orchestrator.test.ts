@@ -596,10 +596,9 @@ describe("parseStreamJsonLine", () => {
       type: "assistant",
       message: { content: [{ type: "text", text: "Hello world" }] },
     });
-    expect(parseStreamJsonLine(line)).toEqual({
-      type: "text",
-      text: "Hello world",
-    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "Hello world" },
+    ]);
   });
 
   it("extracts result from result message", () => {
@@ -607,26 +606,28 @@ describe("parseStreamJsonLine", () => {
       type: "result",
       result: "Final answer <promise>COMPLETE</promise>",
     });
-    expect(parseStreamJsonLine(line)).toEqual({
-      type: "result",
-      result: "Final answer <promise>COMPLETE</promise>",
-      usage: null,
-    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      {
+        type: "result",
+        result: "Final answer <promise>COMPLETE</promise>",
+        usage: null,
+      },
+    ]);
   });
 
-  it("returns null for non-JSON lines", () => {
-    expect(parseStreamJsonLine("not json")).toBeNull();
-    expect(parseStreamJsonLine("")).toBeNull();
+  it("returns empty array for non-JSON lines", () => {
+    expect(parseStreamJsonLine("not json")).toEqual([]);
+    expect(parseStreamJsonLine("")).toEqual([]);
   });
 
-  it("returns null for malformed JSON starting with {", () => {
-    expect(parseStreamJsonLine("{bad json")).toBeNull();
-    expect(parseStreamJsonLine('{"type": "assistant", broken')).toBeNull();
+  it("returns empty array for malformed JSON starting with {", () => {
+    expect(parseStreamJsonLine("{bad json")).toEqual([]);
+    expect(parseStreamJsonLine('{"type": "assistant", broken')).toEqual([]);
   });
 
-  it("returns null for unrecognized JSON types", () => {
+  it("returns empty array for unrecognized JSON types", () => {
     const line = JSON.stringify({ type: "system", data: "something" });
-    expect(parseStreamJsonLine(line)).toBeNull();
+    expect(parseStreamJsonLine(line)).toEqual([]);
   });
 
   it("handles multiple text content blocks", () => {
@@ -639,13 +640,12 @@ describe("parseStreamJsonLine", () => {
         ],
       },
     });
-    expect(parseStreamJsonLine(line)).toEqual({
-      type: "text",
-      text: "Hello world",
-    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "Hello world" },
+    ]);
   });
 
-  it("skips non-text content blocks", () => {
+  it("skips malformed tool_use blocks (no name/input)", () => {
     const line = JSON.stringify({
       type: "assistant",
       message: {
@@ -655,7 +655,75 @@ describe("parseStreamJsonLine", () => {
         ],
       },
     });
-    expect(parseStreamJsonLine(line)).toEqual({ type: "text", text: "result" });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "result" },
+    ]);
+  });
+
+  it("extracts tool_use block from assistant event", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "tool_use", name: "Bash", input: { command: "npm test" } },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+    ]);
+  });
+
+  it("handles mixed text and tool_use content blocks", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "text", text: "Running tests..." },
+          { type: "tool_use", name: "Bash", input: { command: "npm test" } },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "Running tests..." },
+      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+    ]);
+  });
+
+  it("handles multiple tool_use blocks in one event", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [
+          { type: "tool_use", name: "Bash", input: { command: "npm test" } },
+          {
+            type: "tool_use",
+            name: "WebSearch",
+            input: { query: "typescript types" },
+          },
+        ],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "tool_call", name: "Bash", input: { command: "npm test" } },
+      {
+        type: "tool_call",
+        name: "WebSearch",
+        input: { query: "typescript types" },
+      },
+    ]);
+  });
+
+  it("returns only text when event has no tool_use blocks", () => {
+    const line = JSON.stringify({
+      type: "assistant",
+      message: {
+        content: [{ type: "text", text: "Just text, no tools" }],
+      },
+    });
+    expect(parseStreamJsonLine(line)).toEqual([
+      { type: "text", text: "Just text, no tools" },
+    ]);
   });
 
   it("extracts usage data from result message", () => {
@@ -673,19 +741,21 @@ describe("parseStreamJsonLine", () => {
       },
     });
     const parsed = parseStreamJsonLine(line);
-    expect(parsed).toEqual({
-      type: "result",
-      result: "Done.",
-      usage: {
-        input_tokens: 52340,
-        output_tokens: 3201,
-        cache_read_input_tokens: 10000,
-        cache_creation_input_tokens: 5000,
-        total_cost_usd: 0.14,
-        num_turns: 3,
-        duration_ms: 12000,
+    expect(parsed).toEqual([
+      {
+        type: "result",
+        result: "Done.",
+        usage: {
+          input_tokens: 52340,
+          output_tokens: 3201,
+          cache_read_input_tokens: 10000,
+          cache_creation_input_tokens: 5000,
+          total_cost_usd: 0.14,
+          num_turns: 3,
+          duration_ms: 12000,
+        },
       },
-    });
+    ]);
   });
 
   it("returns null usage when result message has no usage data", () => {
@@ -694,11 +764,13 @@ describe("parseStreamJsonLine", () => {
       result: "Done.",
     });
     const parsed = parseStreamJsonLine(line);
-    expect(parsed).toEqual({
-      type: "result",
-      result: "Done.",
-      usage: null,
-    });
+    expect(parsed).toEqual([
+      {
+        type: "result",
+        result: "Done.",
+        usage: null,
+      },
+    ]);
   });
 
   it("returns null usage when usage fields are partial", () => {
@@ -708,11 +780,13 @@ describe("parseStreamJsonLine", () => {
       usage: { input_tokens: 100 },
     });
     const parsed = parseStreamJsonLine(line);
-    expect(parsed).toEqual({
-      type: "result",
-      result: "Done.",
-      usage: null,
-    });
+    expect(parsed).toEqual([
+      {
+        type: "result",
+        result: "Done.",
+        usage: null,
+      },
+    ]);
   });
 });
 
