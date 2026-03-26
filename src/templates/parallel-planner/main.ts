@@ -167,45 +167,34 @@ for (let iteration = 1; iteration <= MAX_ITERATIONS; iteration++) {
     continue;
   }
 
-  if (completedBranches.length === 1) {
-    // Single branch — merge directly without spinning up a merge agent.
-    const { execSync } = await import("node:child_process");
-    const branch = completedBranches[0]!;
-    const issue = completedIssues[0]!;
-    console.log(`\nSingle branch — merging ${branch} directly.`);
-    execSync(`git merge ${branch}`, { stdio: "inherit" });
-    execSync(`gh issue close ${issue.number}`, { stdio: "inherit" });
-    console.log(`\nBranch merged and issue #${issue.number} closed.`);
-  } else {
-    // -------------------------------------------------------------------------
-    // Phase 3: Merge
-    //
-    // One sonnet agent merges all completed branches into the current branch,
-    // resolving any conflicts and running tests to confirm everything still works.
-    //
-    // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
-    // uses to know which branches to merge and which issues to close.
-    // -------------------------------------------------------------------------
-    await sandcastle.run({
-      hooks,
-      copyToSandbox,
-      name: "merger",
-      maxIterations: 10,
-      // Sonnet is sufficient for merge conflict resolution.
-      model: "claude-sonnet-4-6",
-      promptFile: "./.sandcastle/merge-prompt.md",
-      promptArgs: {
-        // A markdown list of branch names, one per line.
-        BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
-        // A markdown list of issue numbers and titles, one per line.
-        ISSUES: completedIssues
-          .map((i) => `- #${i.number}: ${i.title}`)
-          .join("\n"),
-      },
-    });
+  // -------------------------------------------------------------------------
+  // Phase 3: Merge
+  //
+  // One sonnet agent merges all completed branches into the current branch,
+  // resolving any conflicts and running tests to confirm everything still works.
+  //
+  // The {{BRANCHES}} and {{ISSUES}} prompt arguments are lists that the agent
+  // uses to know which branches to merge and which issues to close.
+  // -------------------------------------------------------------------------
+  await sandcastle.run({
+    hooks,
+    copyToSandbox,
+    name: "merger",
+    maxIterations: 10,
+    // Sonnet is sufficient for merge conflict resolution.
+    model: "claude-sonnet-4-6",
+    promptFile: "./.sandcastle/merge-prompt.md",
+    promptArgs: {
+      // A markdown list of branch names, one per line.
+      BRANCHES: completedBranches.map((b) => `- ${b}`).join("\n"),
+      // A markdown list of issue numbers and titles, one per line.
+      ISSUES: completedIssues
+        .map((i) => `- #${i.number}: ${i.title}`)
+        .join("\n"),
+    },
+  });
 
-    console.log("\nBranches merged.");
-  }
+  console.log("\nBranches merged.");
 }
 
 console.log("\nAll done.");

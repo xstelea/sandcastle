@@ -2,4 +2,4 @@
 "@ai-hero/sandcastle": patch
 ---
 
-Close GitHub issue when single-branch merge is performed directly in parallel-planner template
+Remove single-branch shortcut in parallel-planner template; always use the merge agent

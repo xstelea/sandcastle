@@ -524,7 +524,7 @@ describe("InitService scaffold", () => {
       expect(prompt).toContain("{{ISSUES}}");
     });
 
-    it("main.ts closes the issue when only a single branch is merged", async () => {
+    it("main.ts always uses the merge agent regardless of branch count", async () => {
       const dir = await makeDir();
       await runScaffold(dir, fakeProvider, "parallel-planner");
 
@@ -532,7 +532,7 @@ describe("InitService scaffold", () => {
         join(dir, ".sandcastle", "main.ts"),
         "utf-8",
       );
-      expect(mainTs).toContain("gh issue close");
+      expect(mainTs).not.toContain("completedBranches.length === 1");
     });
 
     it("common files are still generated with parallel-planner template", async () => {
