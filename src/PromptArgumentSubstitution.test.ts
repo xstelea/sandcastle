@@ -1,7 +1,11 @@
 import { Effect, Layer, Ref } from "effect";
 import { describe, expect, it } from "vitest";
 import { type DisplayEntry, SilentDisplay } from "./Display.js";
-import { substitutePromptArgs } from "./PromptArgumentSubstitution.js";
+import {
+  substitutePromptArgs,
+  validateNoBuiltInArgOverride,
+  BUILT_IN_PROMPT_ARG_KEYS,
+} from "./PromptArgumentSubstitution.js";
 import { PromptError } from "./errors.js";
 
 describe("PromptArgumentSubstitution", () => {
@@ -128,5 +132,76 @@ describe("PromptArgumentSubstitution", () => {
       (e) => e._tag === "status" && e.severity === "warn",
     );
     expect(warnings).toHaveLength(2);
+  });
+
+  it("does not warn about unused args listed in silentKeys", async () => {
+    const { layer, displayRef } = setup();
+    await Effect.runPromise(
+      substitutePromptArgs(
+        "No built-in placeholders here",
+        { SOURCE_BRANCH: "feat/x", TARGET_BRANCH: "main", USER_ARG: "val" },
+        new Set(["SOURCE_BRANCH", "TARGET_BRANCH"]),
+      ).pipe(Effect.provide(layer)),
+    );
+    const entries = await Effect.runPromise(Ref.get(displayRef));
+    const warnings = entries.filter(
+      (e) => e._tag === "status" && e.severity === "warn",
+    );
+    // Only USER_ARG should warn — SOURCE_BRANCH and TARGET_BRANCH are silent
+    expect(warnings).toHaveLength(1);
+    expect((warnings[0] as { message: string }).message).toContain("USER_ARG");
+  });
+
+  it("still substitutes silent keys when they appear in the prompt", async () => {
+    const { layer } = setup();
+    const result = await Effect.runPromise(
+      substitutePromptArgs(
+        "Branch: {{SOURCE_BRANCH}}",
+        { SOURCE_BRANCH: "feat/my-feature", TARGET_BRANCH: "main" },
+        new Set(["SOURCE_BRANCH", "TARGET_BRANCH"]),
+      ).pipe(Effect.provide(layer)),
+    );
+    expect(result).toBe("Branch: feat/my-feature");
+  });
+});
+
+describe("validateNoBuiltInArgOverride", () => {
+  it("succeeds when promptArgs contains no built-in keys", async () => {
+    await expect(
+      Effect.runPromise(validateNoBuiltInArgOverride({ ISSUE_NUMBER: "42" })),
+    ).resolves.toBeUndefined();
+  });
+
+  it("succeeds for empty promptArgs", async () => {
+    await expect(
+      Effect.runPromise(validateNoBuiltInArgOverride({})),
+    ).resolves.toBeUndefined();
+  });
+
+  it("fails with PromptError when SOURCE_BRANCH is provided", async () => {
+    const error = await Effect.runPromise(
+      validateNoBuiltInArgOverride({ SOURCE_BRANCH: "my-branch" }).pipe(
+        Effect.flip,
+      ),
+    );
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error.message).toContain("SOURCE_BRANCH");
+    expect(error.message).toContain("built-in");
+  });
+
+  it("fails with PromptError when TARGET_BRANCH is provided", async () => {
+    const error = await Effect.runPromise(
+      validateNoBuiltInArgOverride({ TARGET_BRANCH: "main" }).pipe(Effect.flip),
+    );
+    expect(error).toBeInstanceOf(PromptError);
+    expect(error.message).toContain("TARGET_BRANCH");
+    expect(error.message).toContain("built-in");
+  });
+});
+
+describe("BUILT_IN_PROMPT_ARG_KEYS", () => {
+  it("includes SOURCE_BRANCH and TARGET_BRANCH", () => {
+    expect(BUILT_IN_PROMPT_ARG_KEYS).toContain("SOURCE_BRANCH");
+    expect(BUILT_IN_PROMPT_ARG_KEYS).toContain("TARGET_BRANCH");
   });
 });

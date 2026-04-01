@@ -192,6 +192,23 @@ Prompt argument substitution runs on the host before shell expression expansion,
 
 A `{{KEY}}` placeholder with no matching prompt argument is an error. Unused prompt arguments produce a warning.
 
+### Built-in prompt arguments
+
+Sandcastle automatically injects two built-in prompt arguments into every prompt:
+
+| Placeholder         | Value                                                                |
+| ------------------- | -------------------------------------------------------------------- |
+| `{{SOURCE_BRANCH}}` | The branch the agent works on inside the worktree (temp or explicit) |
+| `{{TARGET_BRANCH}}` | The host's active branch at `run()` time                             |
+
+Use them in your prompt without passing them via `promptArgs`:
+
+```markdown
+You are working on {{SOURCE_BRANCH}}. When diffing, compare against {{TARGET_BRANCH}}.
+```
+
+Passing `SOURCE_BRANCH` or `TARGET_BRANCH` in `promptArgs` is an error — built-in prompt arguments cannot be overridden.
+
 ### Early termination with `<promise>COMPLETE</promise>`
 
 When the agent outputs `<promise>COMPLETE</promise>`, the orchestrator stops the iteration loop early. This is a convention you document in your prompt for the agent to follow — the engine never injects it.

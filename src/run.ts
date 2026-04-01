@@ -21,6 +21,8 @@ import { generateTempBranchName, getCurrentBranch } from "./WorktreeManager.js";
 import {
   type PromptArgs,
   substitutePromptArgs,
+  validateNoBuiltInArgOverride,
+  BUILT_IN_PROMPT_ARG_KEYS,
 } from "./PromptArgumentSubstitution.js";
 
 /** Default maximum number of iterations for a run. */
@@ -228,12 +230,15 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
   // the sandbox to work on that branch (instead of the current host branch).
   const resolvedBranch = branch ?? generateTempBranchName(agentName);
 
+  // Always capture the host's current branch for the TARGET_BRANCH built-in
+  // prompt argument. When using a temp branch, it also prefixes the log filename.
+  const currentHostBranch = await Effect.runPromise(
+    getCurrentBranch(hostRepoDir),
+  );
+
   // When using a temp branch, prefix the log filename with the target branch
   // (the host's current branch) so developers can tell which branch was targeted.
-  const targetBranch =
-    branch === undefined
-      ? await Effect.runPromise(getCurrentBranch(hostRepoDir))
-      : undefined;
+  const targetBranch = branch === undefined ? currentHostBranch : undefined;
 
   // Resolve logging option
   const resolvedLogging: LoggingOption = options.logging ?? {
@@ -294,10 +299,23 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
       });
       yield* d.summary("Sandcastle Run", rows);
 
-      // Substitute prompt arguments ({{KEY}} placeholders) before orchestration
-      const resolvedPrompt = options.promptArgs
-        ? yield* substitutePromptArgs(rawPrompt, options.promptArgs)
-        : rawPrompt;
+      // Validate that the user has not provided built-in prompt argument keys
+      const userArgs = options.promptArgs ?? {};
+      yield* validateNoBuiltInArgOverride(userArgs);
+
+      // Build effective args: built-in args merged with user-provided args.
+      // Built-in keys are silenced so they don't trigger unused-arg warnings.
+      const effectiveArgs = {
+        SOURCE_BRANCH: resolvedBranch,
+        TARGET_BRANCH: currentHostBranch,
+        ...userArgs,
+      };
+      const builtInArgKeysSet = new Set<string>(BUILT_IN_PROMPT_ARG_KEYS);
+      const resolvedPrompt = yield* substitutePromptArgs(
+        rawPrompt,
+        effectiveArgs,
+        builtInArgKeysSet,
+      );
 
       const orchestrateResult = yield* orchestrate({
         hostRepoDir,
