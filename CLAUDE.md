@@ -6,4 +6,4 @@ For user-facing changes, add a changeset to `.changeset`. Check all changesets t
 
 When changing public-facing behavior, check `README.md` to see if the documentation needs updating.
 
-When creating GitHub issues that Sandcastle should work on, add the `Sandcastle` label to them.
+When creating GitHub issues that Sandcastle should work on, add the `ready-for-agent` label to them.
