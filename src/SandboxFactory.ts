@@ -375,11 +375,16 @@ export const WorktreeDockerSandboxFactory = {
                   const hostUid = process.getuid?.() ?? 1000;
                   const hostGid = process.getgid?.() ?? 1000;
 
-                  return startContainer(containerName, imageName, env, {
-                    volumeMounts,
-                    workdir: SANDBOX_WORKSPACE_DIR,
-                    user: `${hostUid}:${hostGid}`,
-                  }).pipe(
+                  return startContainer(
+                    containerName,
+                    imageName,
+                    { ...env, HOME: "/home/agent" },
+                    {
+                      volumeMounts,
+                      workdir: SANDBOX_WORKSPACE_DIR,
+                      user: `${hostUid}:${hostGid}`,
+                    },
+                  ).pipe(
                     Effect.andThen(
                       chownInContainer(
                         containerName,

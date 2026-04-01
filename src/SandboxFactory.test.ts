@@ -222,6 +222,44 @@ describe("WorktreeDockerSandboxFactory", () => {
     });
   });
 
+  it("always sets HOME=/home/agent in the container environment", async () => {
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const factory = yield* SandboxFactory;
+        yield* factory.withSandbox(() => Effect.void);
+      }).pipe(Effect.provide(makeLayer())),
+    );
+
+    const runArgs = capturedArgs().find((args) => args[0] === "run");
+    expect(runArgs).toContain("HOME=/home/agent");
+  });
+
+  it("does not let user env override HOME", async () => {
+    const layerWithHome = Layer.provide(
+      WorktreeDockerSandboxFactory.layer,
+      Layer.mergeAll(
+        Layer.succeed(WorktreeSandboxConfig, {
+          imageName: "test-image",
+          env: { FOO: "bar", HOME: "/tmp/evil" },
+          hostRepoDir,
+        }),
+        NodeFileSystem.layer,
+        SilentDisplay.layer(Ref.unsafeMake<ReadonlyArray<DisplayEntry>>([])),
+      ),
+    );
+
+    await Effect.runPromise(
+      Effect.gen(function* () {
+        const factory = yield* SandboxFactory;
+        yield* factory.withSandbox(() => Effect.void);
+      }).pipe(Effect.provide(layerWithHome)),
+    );
+
+    const runArgs = capturedArgs().find((args) => args[0] === "run");
+    expect(runArgs).toContain("HOME=/home/agent");
+    expect(runArgs).not.toContain("HOME=/tmp/evil");
+  });
+
   it("removes worktree even if the effect fails", async () => {
     await expect(
       Effect.runPromise(
