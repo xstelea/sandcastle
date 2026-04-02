@@ -18,6 +18,7 @@ import { SKELETON_PROMPT } from "./templates.js";
 const makeDir = () => mkdtemp(join(tmpdir(), "init-service-"));
 
 const claudeCodeAgent = getAgent("claude-code")!;
+const piAgent = getAgent("pi")!;
 
 const defaultOptions: ScaffoldOptions = {
   agent: claudeCodeAgent,
@@ -52,6 +53,23 @@ describe("Agent registry", () => {
 
   it("getAgent returns undefined for unknown agent", () => {
     expect(getAgent("nonexistent")).toBeUndefined();
+  });
+
+  it("listAgents includes pi", () => {
+    const agents = listAgents();
+    expect(agents.some((a) => a.name === "pi")).toBe(true);
+  });
+
+  it("getAgent returns pi entry with expected fields", () => {
+    const agent = getAgent("pi");
+    expect(agent).toBeDefined();
+    expect(agent!.name).toBe("pi");
+    expect(agent!.defaultModel).toBe("claude-sonnet-4-6");
+    expect(agent!.factoryImport).toBe("pi");
+    expect(agent!.dockerfileTemplate).toContain("FROM");
+    expect(agent!.dockerfileTemplate).toContain(
+      "@mariozechner/pi-coding-agent",
+    );
   });
 });
 
@@ -440,6 +458,27 @@ describe("InitService scaffold", () => {
       const numberedSteps = lines.filter((l) => /^\d+\./.test(l));
       expect(numberedSteps.length).toBeGreaterThanOrEqual(3);
     });
+  });
+
+  it("scaffolds pi agent with pi Dockerfile", async () => {
+    const dir = await makeDir();
+    await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
+
+    const dockerfile = await readFile(
+      join(dir, ".sandcastle", "Dockerfile"),
+      "utf-8",
+    );
+    expect(dockerfile).toBe(piAgent.dockerfileTemplate);
+    expect(dockerfile).toContain("@mariozechner/pi-coding-agent");
+  });
+
+  it("scaffolds main.ts with pi factory import when pi agent selected", async () => {
+    const dir = await makeDir();
+    await runScaffold(dir, { agent: piAgent, model: "claude-sonnet-4-6" });
+
+    const mainTs = await readFile(join(dir, ".sandcastle", "main.ts"), "utf-8");
+    expect(mainTs).toContain('pi("claude-sonnet-4-6")');
+    expect(mainTs).not.toContain("claudeCode");
   });
 
   it("unknown template name throws a clear error", async () => {

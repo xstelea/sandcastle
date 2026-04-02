@@ -18,6 +18,7 @@ import {
 import { defaultImageName } from "./run.js";
 import {
   claudeCode,
+  pi as piFactory,
   DEFAULT_MODEL,
   type AgentProvider,
 } from "./AgentProvider.js";
@@ -313,6 +314,7 @@ const AGENT_REGISTRY: Record<
   { factory: (model: string) => AgentProvider; defaultModel: string }
 > = {
   "claude-code": { factory: claudeCode, defaultModel: DEFAULT_MODEL },
+  pi: { factory: piFactory, defaultModel: "claude-sonnet-4-6" },
 };
 
 const interactiveAgentOption = Options.text("agent").pipe(

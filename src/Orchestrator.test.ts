@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 import { Display, type DisplayEntry, SilentDisplay } from "./Display.js";
 import { makeLocalSandboxLayer } from "./testSandbox.js";
 import { orchestrate } from "./Orchestrator.js";
-import { claudeCode, DEFAULT_MODEL } from "./AgentProvider.js";
+import { claudeCode, pi as piFactory, DEFAULT_MODEL } from "./AgentProvider.js";
 import { Sandbox } from "./SandboxFactory.js";
 import type { DockerError, SandboxError } from "./errors.js";
 import { TimeoutError } from "./errors.js";
@@ -2376,4 +2376,141 @@ describe("Orchestrator Display integration", () => {
       "Agent idle for 1 minute",
     );
   }, 10_000);
+});
+
+// ---------------------------------------------------------------------------
+// Pi provider integration tests
+// ---------------------------------------------------------------------------
+
+const piTestProvider = piFactory("claude-sonnet-4-6");
+
+/** Format a mock agent result as pi JSON stream lines */
+const toPiStreamJson = (output: string): string => {
+  const lines: string[] = [];
+  lines.push(
+    JSON.stringify({
+      type: "message_update",
+      content: [{ type: "text_delta", text: output }],
+    }),
+  );
+  lines.push(
+    JSON.stringify({ type: "agent_end", last_assistant_message: output }),
+  );
+  return lines.join("\n");
+};
+
+/**
+ * Create a mock sandbox layer that intercepts `pi` commands
+ * and runs a mock script instead.
+ */
+const makeMockPiAgentLayer = (
+  sandboxDir: string,
+  mockAgentBehavior: (sandboxRepoDir: string) => Promise<string>,
+): Layer.Layer<Sandbox> => {
+  const fsLayer = makeLocalSandboxLayer(sandboxDir);
+
+  return Layer.succeed(Sandbox, {
+    exec: (command, options) => {
+      if (command.startsWith("pi ")) {
+        return Effect.gen(function* () {
+          const cwd = options?.cwd ?? sandboxDir;
+          const output = yield* Effect.promise(() => mockAgentBehavior(cwd));
+          return { stdout: output, stderr: "", exitCode: 0 };
+        });
+      }
+      return Effect.flatMap(Sandbox, (real) =>
+        real.exec(command, options),
+      ).pipe(Effect.provide(fsLayer));
+    },
+    execStreaming: (command, onStdoutLine, options) => {
+      if (command.startsWith("pi ")) {
+        return Effect.gen(function* () {
+          const cwd = options?.cwd ?? sandboxDir;
+          const output = yield* Effect.promise(() => mockAgentBehavior(cwd));
+          const streamOutput = toPiStreamJson(output);
+          for (const line of streamOutput.split("\n")) {
+            onStdoutLine(line);
+          }
+          return { stdout: streamOutput, stderr: "", exitCode: 0 };
+        });
+      }
+      return Effect.flatMap(Sandbox, (real) =>
+        real.execStreaming(command, onStdoutLine, options),
+      ).pipe(Effect.provide(fsLayer));
+    },
+    copyIn: (hostPath, sandboxPath) =>
+      Effect.flatMap(Sandbox, (real) =>
+        real.copyIn(hostPath, sandboxPath),
+      ).pipe(Effect.provide(fsLayer)),
+    copyOut: (sandboxPath, hostPath) =>
+      Effect.flatMap(Sandbox, (real) =>
+        real.copyOut(sandboxPath, hostPath),
+      ).pipe(Effect.provide(fsLayer)),
+  });
+};
+
+describe("Orchestrator with pi provider", () => {
+  it("runs a single iteration with pi provider and produces a commit", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "orch-pi-host-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "hello.txt", "hello", "initial commit");
+
+    const { factoryLayer, sandboxRepoDir } = makeTestSandboxFactory(
+      hostDir,
+      (dir) =>
+        makeMockPiAgentLayer(dir, async (repoDir) => {
+          await writeFile(join(repoDir, "pi-output.txt"), "pi was here");
+          await execAsync("git add -A", { cwd: repoDir });
+          await execAsync('git config user.email "agent@test.com"', {
+            cwd: repoDir,
+          });
+          await execAsync('git config user.name "Agent"', { cwd: repoDir });
+          await execAsync('git commit -m "RALPH: pi agent commit"', {
+            cwd: repoDir,
+          });
+          return "Done with iteration.";
+        }),
+    );
+
+    const result = await Effect.runPromise(
+      orchestrate({
+        provider: piTestProvider,
+        hostRepoDir: hostDir,
+        sandboxRepoDir,
+        iterations: 1,
+        prompt: "do some work",
+      }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
+    );
+
+    expect(result.iterationsRun).toBe(1);
+    const content = await readFile(join(hostDir, "pi-output.txt"), "utf-8");
+    expect(content).toBe("pi was here");
+  });
+
+  it("stops early on completion signal with pi provider", async () => {
+    const hostDir = await mkdtemp(join(tmpdir(), "orch-pi-host-"));
+    await initRepo(hostDir);
+    await commitFile(hostDir, "hello.txt", "hello", "initial commit");
+
+    const { factoryLayer, sandboxRepoDir } = makeTestSandboxFactory(
+      hostDir,
+      (dir) =>
+        makeMockPiAgentLayer(dir, async () => {
+          return "All done. <promise>COMPLETE</promise>";
+        }),
+    );
+
+    const result = await Effect.runPromise(
+      orchestrate({
+        provider: piTestProvider,
+        hostRepoDir: hostDir,
+        sandboxRepoDir,
+        iterations: 5,
+        prompt: "do some work",
+      }).pipe(Effect.provide(Layer.merge(factoryLayer, testDisplayLayer))),
+    );
+
+    expect(result.iterationsRun).toBe(1);
+    expect(result.completionSignal).toBe("<promise>COMPLETE</promise>");
+  });
 });

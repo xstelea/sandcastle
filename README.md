@@ -267,7 +267,7 @@ Scaffolds the `.sandcastle/` config directory and builds the Docker image. This 
 | Option         | Required | Default                      | Description                                                          |
 | -------------- | -------- | ---------------------------- | -------------------------------------------------------------------- |
 | `--image-name` | No       | `sandcastle:<repo-dir-name>` | Docker image name                                                    |
-| `--agent`      | No       | Interactive prompt           | Agent to use (e.g. `claude-code`)                                    |
+| `--agent`      | No       | Interactive prompt           | Agent to use (`claude-code`, `pi`)                                   |
 | `--model`      | No       | Agent's default model        | Model to use (e.g. `claude-sonnet-4-6`). Defaults to agent's default |
 | `--template`   | No       | Interactive prompt           | Template to scaffold (e.g. `blank`, `simple-loop`)                   |
 
@@ -304,7 +304,7 @@ Removes the Docker image.
 
 | Option               | Type               | Default                       | Description                                                                                         |
 | -------------------- | ------------------ | ----------------------------- | --------------------------------------------------------------------------------------------------- |
-| `agent`              | AgentProvider      | —                             | **Required.** Agent provider (e.g. `claudeCode("claude-opus-4-6")`)                                 |
+| `agent`              | AgentProvider      | —                             | **Required.** Agent provider (e.g. `claudeCode("claude-opus-4-6")`, `pi("claude-sonnet-4-6")`)      |
 | `prompt`             | string             | —                             | Inline prompt (mutually exclusive with `promptFile`)                                                |
 | `promptFile`         | string             | —                             | Path to prompt file (mutually exclusive with `prompt`)                                              |
 | `maxIterations`      | number             | `1`                           | Maximum iterations to run                                                                           |

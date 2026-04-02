@@ -6,5 +6,5 @@ export type {
   WorktreeMode,
 } from "./run.js";
 export type { PromptArgs } from "./PromptArgumentSubstitution.js";
-export { claudeCode } from "./AgentProvider.js";
+export { claudeCode, pi } from "./AgentProvider.js";
 export type { AgentProvider } from "./AgentProvider.js";
