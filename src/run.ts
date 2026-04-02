@@ -236,7 +236,7 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
   // When in temp-branch mode, generate a temporary branch name.
   // This names the log file after the temp branch and also directs
   // the sandbox to work on that branch (instead of the current host branch).
-  const resolvedBranch = branch ?? generateTempBranchName(agentName);
+  const resolvedBranch = branch ?? generateTempBranchName(options.name);
 
   // Always capture the host's current branch for the TARGET_BRANCH built-in
   // prompt argument. When using a temp branch, it also prefixes the log filename.
@@ -283,7 +283,7 @@ export const run = async (options: RunOptions): Promise<RunResult> => {
         hostRepoDir,
         worktree: worktreeMode,
         copyToSandbox: options.copyToSandbox,
-        agentName,
+        name: options.name,
       }),
       NodeFileSystem.layer,
       displayLayer,

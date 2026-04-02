@@ -13,8 +13,8 @@ const formatTimestamp = (date: Date): string => {
   );
 };
 
-/** Sanitize an agent name for use in branch names and directory names. */
-export const sanitizeAgentName = (name: string): string =>
+/** Sanitize a name for use in branch names and directory names. */
+export const sanitizeName = (name: string): string =>
   name.toLowerCase().replace(/[^a-z0-9]/g, "-");
 
 const execGit = (
@@ -39,13 +39,13 @@ const execGit = (
 
 /**
  * Generates a temporary branch name.
- * When agentName is provided: `sandcastle/<sanitized-agent>/<YYYYMMDD-HHMMSS>`.
+ * When name is provided: `sandcastle/<sanitized-name>/<YYYYMMDD-HHMMSS>`.
  * Otherwise: `sandcastle/<YYYYMMDD-HHMMSS>`.
  */
-export const generateTempBranchName = (agentName?: string): string => {
+export const generateTempBranchName = (name?: string): string => {
   const ts = formatTimestamp(new Date());
-  if (agentName) {
-    return `sandcastle/${sanitizeAgentName(agentName)}/${ts}`;
+  if (name) {
+    return `sandcastle/${sanitizeName(name)}/${ts}`;
   }
   return `sandcastle/${ts}`;
 };
@@ -109,7 +109,7 @@ const listWorktrees = (
  */
 export const create = (
   repoDir: string,
-  opts?: { branch?: string; agentName?: string },
+  opts?: { branch?: string; name?: string },
 ): Effect.Effect<WorktreeInfo, WorktreeError, FileSystem.FileSystem> =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -126,8 +126,8 @@ export const create = (
       worktreeName = branch.replace(/\//g, "-");
     } else {
       const timestamp = formatTimestamp(new Date());
-      if (opts?.agentName) {
-        const sanitized = sanitizeAgentName(opts.agentName);
+      if (opts?.name) {
+        const sanitized = sanitizeName(opts.name);
         branch = `sandcastle/${sanitized}/${timestamp}`;
         worktreeName = `sandcastle-${sanitized}-${timestamp}`;
       } else {

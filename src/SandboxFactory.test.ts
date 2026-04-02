@@ -121,7 +121,7 @@ describe("WorktreeDockerSandboxFactory", () => {
     );
 
     expect(mockCreate).toHaveBeenCalledWith(hostRepoDir, {
-      agentName: undefined,
+      name: undefined,
     });
   });
 
@@ -134,7 +134,7 @@ describe("WorktreeDockerSandboxFactory", () => {
     );
 
     expect(mockCreate).toHaveBeenCalledWith(hostRepoDir, {
-      agentName: undefined,
+      name: undefined,
     });
     // Worktree creation happened before the docker run call
     const runCallIndex = mockExecFile.mock.calls.findIndex(
@@ -224,7 +224,7 @@ describe("WorktreeDockerSandboxFactory", () => {
     );
 
     expect(mockCreate).toHaveBeenCalledWith(hostRepoDir, {
-      agentName: undefined,
+      name: undefined,
     });
   });
 
