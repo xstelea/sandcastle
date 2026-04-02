@@ -88,7 +88,7 @@ const invokeAgent = (
       if (execResult.exitCode !== 0) {
         return yield* Effect.fail(
           new AgentError({
-            message: `Claude exited with code ${execResult.exitCode}:\n${execResult.stderr}`,
+            message: `${provider.name} exited with code ${execResult.exitCode}:\n${execResult.stderr}`,
           }),
         );
       }

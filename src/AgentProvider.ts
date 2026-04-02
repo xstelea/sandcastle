@@ -218,7 +218,7 @@ export const codex = (model: string): AgentProvider => ({
   name: "codex",
 
   buildPrintCommand(prompt: string): string {
-    return `codex --json --model ${shellEscape(model)} ${shellEscape(prompt)}`;
+    return `codex exec --json --dangerously-bypass-approvals-and-sandbox -m ${shellEscape(model)} ${shellEscape(prompt)}`;
   },
 
   buildInteractiveArgs(_prompt: string): string[] {
