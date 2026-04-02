@@ -386,9 +386,7 @@ export const createSandbox = async (
     },
 
     [Symbol.asyncDispose]: async (): Promise<void> => {
-      process.removeListener("SIGINT", onSignal);
-      process.removeListener("SIGTERM", onSignal);
-      await doClose();
+      await sandboxHandle.close();
     },
   };
 
