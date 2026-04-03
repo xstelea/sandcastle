@@ -103,10 +103,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
 
 # Create a non-root user
 RUN useradd -m -s /bin/bash agent
-USER agent
 
-# Install pi coding agent
+# Install pi coding agent (run as root before USER agent)
 RUN npm install -g @mariozechner/pi-coding-agent
+
+USER agent
 
 WORKDIR /home/agent
 
@@ -135,10 +136,11 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \\
 
 # Create a non-root user
 RUN useradd -m -s /bin/bash agent
-USER agent
 
-# Install Codex CLI
+# Install Codex CLI (run as root before USER agent)
 RUN npm install -g @openai/codex
+
+USER agent
 
 WORKDIR /home/agent
 
